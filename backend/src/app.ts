@@ -97,7 +97,14 @@ app.get('/api/history', async (req, res) => {
   const limit = parseInt(req.query.limit as string) || 20;
   const skip = (page - 1) * limit;
   const where: any = {};
-  if (req.query.status) where.status = req.query.status;
+  if (req.query.status && req.query.status !== 'all status') {
+    where.status = (req.query.status as string).toUpperCase();
+  }
+  if (req.query.risk && req.query.risk !== 'all risk') {
+    where.analysis = {
+      riskLevel: (req.query.risk as string).toUpperCase()
+    };
+  }
   if (req.query.search) {
     where.OR = [
       { id: { contains: req.query.search as string } },

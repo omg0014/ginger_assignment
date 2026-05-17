@@ -384,6 +384,8 @@ function ResultPanel({
 export default function History() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all status');
+  const [riskFilter, setRiskFilter] = useState('all risk');
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [panelOpen, setPanelOpen]         = useState(false);
 
@@ -415,8 +417,16 @@ export default function History() {
   }, []);
 
   const { data: history, isLoading } = useQuery({
-    queryKey: ['history', page, search],
-    queryFn: () => axios.get(`${API_URL}/api/history`, { params: { page, search, limit: 10 } }).then(res => res.data),
+    queryKey: ['history', page, search, statusFilter, riskFilter],
+    queryFn: () => axios.get(`${API_URL}/api/history`, { 
+      params: { 
+        page, 
+        search, 
+        status: statusFilter, 
+        risk: riskFilter, 
+        limit: 10 
+      } 
+    }).then(res => res.data),
     placeholderData: (previousData) => previousData
   });
 
@@ -449,13 +459,21 @@ export default function History() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <select className="filter-select">
+        <select 
+          className="filter-select"
+          value={statusFilter}
+          onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+        >
           <option>all status</option>
           <option>completed</option>
           <option>failed</option>
           <option>processing</option>
         </select>
-        <select className="filter-select">
+        <select 
+          className="filter-select"
+          value={riskFilter}
+          onChange={(e) => { setRiskFilter(e.target.value); setPage(1); }}
+        >
           <option>all risk</option>
           <option>high</option>
           <option>medium</option>
