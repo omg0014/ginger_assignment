@@ -54,7 +54,7 @@ The easiest way to run VehicleScope is via Docker Compose. This spins up the API
 
 ### 1. Clone & Build
 ```bash
-git clone <repository-url>
+git clone https://github.com/omg0014/ginger_assignment.git
 
 # Start all services in detached mode
 docker compose up -d --build
