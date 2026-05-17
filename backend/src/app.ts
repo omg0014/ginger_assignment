@@ -9,7 +9,11 @@ import fs from 'fs';
 import { createHash } from 'crypto';
 
 const app = express();
-const upload = multer({ dest: process.env.UPLOAD_DIR || 'uploads/' });
+const uploadDir = process.env.UPLOAD_DIR || 'uploads/';
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+const upload = multer({ dest: uploadDir });
 
 app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:3000' }));
 app.use(express.json());
