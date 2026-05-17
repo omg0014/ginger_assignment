@@ -11,14 +11,14 @@ The project features a striking **Brutalist UI** frontend backed by a robust, no
 
 - **Asynchronous Processing Pipeline**: Uploads are queued instantly via BullMQ and Redis, keeping the API fast and responsive. Background workers process images decoupled from the web server.
 - **8 Concurrent Detection Layers**:
-  1. 🌫️ **Blur Detection** *(Laplacian variance analysis)*
-  2. 💡 **Brightness Check** *(Mean channel luminance)*
-  3. 📑 **Duplicate Detection** *(MD5 historical hashing)*
-  4. 📱 **Screenshot Detection** *(Resolution heuristics & EXIF signals)*
-  5. 📐 **Dimension Validation** *(Aspect ratio bounding)*
-  6. 🔤 **Number Plate OCR** *(Tesseract.js dual-pass character extraction)*
-  7. 📊 **Metadata Analysis** *(EXIF editing software signals)*
-  8. 🔍 **Tamper Heuristics** *(Quadrant variance analysis)*
+  1.  **Blur Detection** *(Laplacian variance analysis)*
+  2.  **Brightness Check** *(Mean channel luminance)*
+  3.  **Duplicate Detection** *(MD5 historical hashing)*
+  4.  **Screenshot Detection** *(Resolution heuristics & EXIF signals)*
+  5.  **Dimension Validation** *(Aspect ratio bounding)*
+  6.  **Number Plate OCR** *(Tesseract.js dual-pass character extraction)*
+  7.  **Metadata Analysis** *(EXIF editing software signals)*
+  8.  **Tamper Heuristics** *(Quadrant variance analysis)*
 - **Fault-Tolerant execution**: If the OCR engine fails, the other 7 checks still complete and return partial insights.
 - **Brutalist Design System**: High-contrast, bold typography, zero border-radius, and harsh shadows. Built entirely with Tailwind CSS and standard React components.
 
@@ -114,7 +114,7 @@ Navigate to `http://localhost:3000`.
 
 ---
 
-## 🏗️ Architecture Flow
+##  Architecture Flow
 
 1. **User** uploads an image via the React Frontend.
 2. The **Express API** saves the file to disk and creates a `PENDING` job in **PostgreSQL**.
@@ -125,7 +125,7 @@ Navigate to `http://localhost:3000`.
 
 ---
 
-## 📡 API Reference
+##  API Reference
 
 ### `POST /api/upload`
 Uploads a vehicle image for analysis.
@@ -140,7 +140,7 @@ Returns the complete, granular output from all 8 detection layers.
 
 ---
 
-## 💡 Design Decisions & Trade-offs
+##  Design Decisions & Trade-offs
 
 - **Why BullMQ?** Image processing is CPU-bound and slow. Using `setTimeout` or running it inline would block the Node.js event loop, preventing the API from serving other requests. BullMQ ensures reliability, exponential backoff retries, and scalability.
 
