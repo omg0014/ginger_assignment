@@ -1,72 +1,64 @@
-#  VehicleScope
-**Intelligent, asynchronous vehicle image processing pipeline.**
+# VehicleScope
 
-VehicleScope is an end-to-end full-stack application designed to automatically detect and flag issues in uploaded vehicle images. Built with an event-driven architecture, it processes images concurrently through 8 distinct detection layers to identify blurring, poor lighting, duplicates, screenshots, and signs of tampering.
-
-The project features a striking **Brutalist UI** frontend backed by a robust, non-blocking **Express + BullMQ** backend architecture.
+Intelligent, asynchronous vehicle image processing pipeline. Upload a vehicle image — get back a structured risk analysis across 8 detection checks.
 
 ---
 
-##  Core Features
+## What It Does
 
-- **Asynchronous Processing Pipeline**: Uploads are queued instantly via BullMQ and Redis, keeping the API fast and responsive. Background workers process images decoupled from the web server.
-- **8 Concurrent Detection Layers**:
-  1.  **Blur Detection** *(Laplacian variance analysis)*
-  2.  **Brightness Check** *(Mean channel luminance)*
-  3.  **Duplicate Detection** *(MD5 historical hashing)*
-  4.  **Screenshot Detection** *(Resolution heuristics & EXIF signals)*
-  5.  **Dimension Validation** *(Aspect ratio bounding)*
-  6.  **Number Plate OCR** *(Tesseract.js dual-pass character extraction)*
-  7.  **Metadata Analysis** *(EXIF editing software signals)*
-  8.  **Tamper Heuristics** *(Quadrant variance analysis)*
-- **Fault-Tolerant execution**: If the OCR engine fails, the other 7 checks still complete and return partial insights.
-- **Brutalist Design System**: High-contrast, bold typography, zero border-radius, and harsh shadows. Built entirely with Tailwind CSS and standard React components.
+Users upload a vehicle image. The system immediately returns a Job ID, then processes the image in the background through 8 detection checks running concurrently. Results include a `0–100%` risk score, `LOW / MEDIUM / HIGH` classification, and per-check breakdown with details.
 
 ---
 
-##  Tech Stack
+## Tech Stack
 
-**Frontend**
-- **Framework:** React + Vite
-- **Styling:** Tailwind CSS (Custom Brutalist Theme)
-- **Routing:** React Router DOM
-
-**Backend**
-- **Framework:** Node.js + Express
-- **Database:** PostgreSQL + Prisma ORM
-- **Queue System:** BullMQ + Redis
-- **Image Processing:** Sharp
-- **OCR Engine:** Tesseract.js
-- **Metadata Parser:** Exifr
-- **Logging:** Winston
-
-**Infrastructure**
-- Docker & Docker Compose (Multi-container deployment)
+| Layer | Tech |
+|---|---|
+| Frontend | React + Vite + TypeScript + Tailwind CSS |
+| API | Node.js + Express + TypeScript |
+| Queue | BullMQ + Redis |
+| Database | PostgreSQL + Prisma ORM |
+| Image Analysis | Sharp, Tesseract.js, Exifr |
+| Infrastructure | Docker Compose |
 
 ---
 
-##  Quick Start (Recommended)
+## Architecture
 
-The easiest way to run VehicleScope is via Docker Compose. This spins up the API, Frontend UI, Redis, PostgreSQL, and the background Worker automatically.
-
-### Prerequisites
-- [Docker](https://docs.docker.com/get-docker/) installed and running.
-
-### 1. Clone & Build
-```bash
-git clone https://github.com/omg0014/ginger_assignment.git
-
-# Start all services in detached mode
-docker compose up -d --build
+```
+User → POST /api/upload → Express API
+                              │
+                    Save file + create Job (PENDING)
+                              │
+                    Push to BullMQ (Redis)
+                              │
+                         Worker Process
+                              │
+                    Run 8 checks (Promise.all)
+                              │
+                    Save Analysis → Job = COMPLETED
+                              │
+              Frontend polls GET /api/jobs/:id every 2s
 ```
 
-### 2. Access the Application
-- **Frontend Dashboard**: [http://localhost:3000](http://localhost:3000)
-- **Backend API**: [http://localhost:3001](http://localhost:3001)
+Retries: 3 attempts, exponential backoff (`2s → 8s → 32s`). One failed check never kills the other 7.
 
-### 3. Teardown
+---
+
+## Quick Start
+
 ```bash
-# Stop and remove all containers and volumes
+git clone https://github.com/omg0014/ginger_assignment.git
+cd ginger_assignment
+
+docker compose up --build
+```
+
+- Frontend → `http://localhost:3000`
+- API → `http://localhost:3001`
+
+```bash
+# Tear down
 docker compose down -v
 ```
 
@@ -113,38 +105,71 @@ Navigate to `http://localhost:3000`.
 
 ---
 
-##  Architecture Flow
 
-1. **User** uploads an image via the React Frontend.
-2. The **Express API** saves the file to disk and creates a `PENDING` job in **PostgreSQL**.
-3. The API enqueues a job payload to **BullMQ (Redis)** and immediately returns the Job ID to the user.
-4. The **Worker Process** picks up the job and runs the 8 detection layers using `Promise.all`.
-5. The Worker saves the granular analysis results to Postgres and marks the job as `COMPLETED`.
-6. The Frontend, polling the API, sees the status change and routes the user to the detailed analysis view.
+## API Endpoints
 
----
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/upload` | Upload image, returns `jobId` immediately |
+| `GET` | `/api/jobs/:id` | Poll job status |
+| `GET` | `/api/jobs/:id/result` | Full analysis with all 8 checks |
+| `GET` | `/api/history` | Paginated job history |
+| `GET` | `/api/analytics` | Stats, risk trends, issue breakdown |
+| `GET` | `/health` | System health check |
 
-##  API Reference
-
-### `POST /api/upload`
-Uploads a vehicle image for analysis.
-- **Body**: `multipart/form-data` containing an `image` file.
-- **Returns**: `{ jobId: string, status: "pending" }`
-
-### `GET /api/jobs/:id`
-Returns the status and overall risk classification of a job.
-
-### `GET /api/jobs/:id/result`
-Returns the complete, granular output from all 8 detection layers.
+**Upload example:**
+```bash
+curl -X POST http://localhost:3001/api/upload \
+  -F "image=@vehicle.jpg"
+# → { "jobId": "550e8400...", "status": "pending" }
+```
 
 ---
 
-##  Design Decisions & Trade-offs
+## Detection Checks
 
-- **Why BullMQ?** Image processing is CPU-bound and slow. Using `setTimeout` or running it inline would block the Node.js event loop, preventing the API from serving other requests. BullMQ ensures reliability, exponential backoff retries, and scalability.
+All 8 run concurrently. Each returns `passed`, `score (0–1)`, `confidence`, and a `detail` string.
 
-- **Local Disk Storage**: Images are temporarily stored in `backend/uploads/` for simplicity. In a production environment, this would be swapped out for a cloud blob store (like AWS S3) accompanied by pre-signed URLs.
+| # | Check | How |
+|---|---|---|
+| 01 | Blur Detection | Pixel std-dev sharpness via Sharp |
+| 02 | Brightness Analysis | Mean channel luminance — flags dark/overexposed |
+| 03 | Duplicate Detection | MD5 hash matched against job history |
+| 04 | Screenshot Detection | Screen resolution + missing EXIF camera signals |
+| 05 | Dimension Validation | Width, height, aspect ratio bounds |
+| 06 | Number Plate OCR | Tesseract.js dual-pass + Indian plate regex `XX00XX0000` |
+| 07 | Metadata Analysis | EXIF inspection — editing software, GPS, timestamps |
+| 08 | Tamper Detection | Per-quadrant pixel variance ratio |
+
+**Risk score:** weighted average of all check scores → `< 0.3` LOW · `0.3–0.6` MEDIUM · `> 0.6` HIGH
 
 ---
 
+## Design Decisions
 
+**Why BullMQ?** Image processing is slow and CPU-bound. Running it inline would block the event loop. BullMQ decouples the worker from the API, persists jobs through restarts, and supports retries.
+
+**Why per-check error isolation?** If Tesseract fails on a corrupt file, the other 7 checks should still complete. Each check catches its own errors and returns a result object instead of throwing.
+
+**Why MD5 for duplicates?** Fast, deterministic, and sufficient for exact file-level matching. Perceptual hashing (pHash) would be needed for near-duplicate detection.
+
+**What I'd improve:** S3 for file storage, WebSockets instead of polling, trained ML models for blur/tamper instead of heuristics, and Jest unit tests per check.
+
+---
+
+## AI Usage
+
+Used AI for: initial scaffolding, BullMQ boilerplate, Docker Compose setup, Tailwind UI components.
+
+**Where it was wrong:** AI generated `Tesseract.recognize()` — the v4 API that doesn't exist in v5. Fixed by switching to `createWorker()` → `setParameters()` → `worker.recognize()`. Also generated filename-based duplicate detection — replaced with MD5 hashing.
+
+**Validation approach:** every function tested manually with real vehicle images before wiring to the frontend.
+
+---
+
+## Assumptions
+
+- One image per upload (no batch)
+- Target number plate format: Indian (`MH12AB1234`)
+- Duplicate = byte-identical file, not visually similar
+- No auth required for this assignment
