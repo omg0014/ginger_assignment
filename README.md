@@ -55,7 +55,6 @@ The easiest way to run VehicleScope is via Docker Compose. This spins up the API
 ### 1. Clone & Build
 ```bash
 git clone <repository-url>
-cd vehiclescope
 
 # Start all services in detached mode
 docker compose up -d --build
