@@ -2,7 +2,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const systemLayers = [
   {
@@ -120,7 +120,7 @@ export default function Dashboard() {
   const { data: analytics, isLoading } = useQuery({
     queryKey: ['analytics'],
     queryFn: async () => {
-      const res = await axios.get(`${API_URL}/analytics/summary`);
+      const res = await axios.get(`${API_URL}/api/analytics/summary`);
       return res.data;
     }
   });
